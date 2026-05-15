@@ -7,7 +7,9 @@ from touch import Button
 from src.colors import (
     BLACK,
     GRAY_200,
+    GRAY_400,
     GRAY_600,
+    GRAY_700,
     GRAY_900,
     GREEN_500,
     GREEN_900,
@@ -16,13 +18,102 @@ from src.colors import (
 )
 from src.core import display, presto, transition_to_view, vector
 from src.logger import logger
-from src.models import ROOMS, get_room
+from src.models import ROOMS, WEATHER, get_room
 
 # sizes & spacing
 WIDTH, HEIGHT = display.get_bounds()
 GAP = 8
 TILES = 4
 TILE_SIZE = (WIDTH - (GAP * (TILES - 1))) / TILES
+WEATHER_Y = int((int(TILE_SIZE) + GAP) * 2)  # y where weather section starts (below 2 tile rows)
+
+_COND_FULL = {
+    "clear-night": "Nuit claire",
+    "cloudy": "Nuageux",
+    "exceptional": "Exceptionnel",
+    "fog": "Brouillard",
+    "hail": "Grele",
+    "lightning": "Orageux",
+    "lightning-rainy": "Orage+pluie",
+    "partlycloudy": "Peu nuageux",
+    "pouring": "Pluie forte",
+    "rainy": "Pluvieux",
+    "snowy": "Neigeux",
+    "snowy-rainy": "Neige+pluie",
+    "sunny": "Ensoleille",
+    "windy": "Venteux",
+    "windy-variant": "Venteux",
+}
+
+_COND_SHORT = {
+    "clear-night": "Nuit",
+    "cloudy": "Nuag",
+    "exceptional": "Exc.",
+    "fog": "Brui",
+    "hail": "Grel",
+    "lightning": "Orge",
+    "lightning-rainy": "Or.P",
+    "partlycloudy": "Mi-N",
+    "pouring": "Pluv",
+    "rainy": "Plui",
+    "snowy": "Neig",
+    "snowy-rainy": "Ne.P",
+    "sunny": "Sol.",
+    "windy": "Vent",
+    "windy-variant": "Vent",
+}
+
+
+class WeatherSection:
+    def draw(self):
+        y = WEATHER_Y
+        h = HEIGHT - y
+
+        display.set_pen(BLACK)
+        display.rectangle(0, y, WIDTH, h)
+
+        if WEATHER.condition is None and WEATHER.temperature is None:
+            presto.partial_update(0, y, WIDTH, h)
+            return
+
+        y_cur = y + 2
+        cond_name = _COND_FULL.get(WEATHER.condition, WEATHER.condition or "-")
+        display.set_pen(WHITE)
+        display.text(cond_name, GAP, y_cur, WIDTH, 2)
+
+        if WEATHER.temperature is not None:
+            temp_str = f"{int(round(WEATHER.temperature))}°"
+            tw = display.measure_text(temp_str, 2)
+            display.text(temp_str, WIDTH - tw - GAP, y_cur, WIDTH, 2)
+
+        y_today = y_cur + 22
+        if WEATHER.temp_low is not None and WEATHER.temp_high is not None:
+            today_str = f"Auj: {int(round(WEATHER.temp_low))}° - {int(round(WEATHER.temp_high))}°"
+            display.set_pen(GRAY_600)
+            display.text(today_str, GAP, y_today, WIDTH, 1)
+
+        y_sep = y_today + 16
+        display.set_pen(GRAY_700)
+        display.rectangle(0, y_sep, WIDTH, 1)
+
+        y_fc = y_sep + 4
+        col_w = WIDTH // 5
+
+        for i, fc in enumerate(WEATHER.forecast[:5]):
+            x = i * col_w
+            display.set_pen(GRAY_400)
+            display.text(fc.day_abbr, x + 4, y_fc, WIDTH, 1)
+            short = _COND_SHORT.get(fc.condition, fc.condition[:4] if fc.condition else "-")
+            display.set_pen(GRAY_600)
+            display.text(short, x + 4, y_fc + 14, WIDTH, 1)
+            if fc.temp_max is not None:
+                display.set_pen(WHITE)
+                display.text(f"{int(round(fc.temp_max))}°", x + 4, y_fc + 28, WIDTH, 1)
+            if fc.temp_min is not None:
+                display.set_pen(GRAY_600)
+                display.text(f"{int(round(fc.temp_min))}°", x + 4, y_fc + 42, WIDTH, 1)
+
+        presto.partial_update(0, y, WIDTH, h)
 
 
 class SplashView:
@@ -210,6 +301,7 @@ class DefaultView:
         self._room_tiles = []
         self._known_rooms = frozenset()
         self._last_connect_status = None
+        self._weather = WeatherSection()
         self._build_tiles()
 
     def _build_tiles(self):
@@ -278,6 +370,8 @@ class DefaultView:
                 new_val = room.actual_temp_str
                 if tile._value != new_val:
                     tile.set_state(new_val)
+
+        self._weather.draw()
 
 
 def size(tiles):

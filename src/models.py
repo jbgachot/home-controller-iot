@@ -1,5 +1,43 @@
 """Data models for thermostat rooms"""
 
+_DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+
+
+class ForecastDay:
+    def __init__(self, datetime_str, condition, temp_max, temp_min, precipitation_probability=0):
+        self._datetime_str = datetime_str
+        self.condition = condition
+        self.temp_max = temp_max
+        self.temp_min = temp_min
+        self.precipitation_probability = precipitation_probability
+
+    @property
+    def day_abbr(self):
+        try:
+            date = self._datetime_str[:10]
+            year, month, day = int(date[:4]), int(date[5:7]), int(date[8:10])
+            if month < 3:
+                month += 12
+                year -= 1
+            k = year % 100
+            j = year // 100
+            h = (day + (13 * (month + 1)) // 5 + k + k // 4 + j // 4 - 2 * j) % 7
+            return _DAYS_FR[(h + 5) % 7]
+        except Exception:
+            return "?"
+
+
+class WeatherData:
+    def __init__(self):
+        self.condition = None
+        self.temperature = None
+        self.temp_high = None
+        self.temp_low = None
+        self.forecast = []  # list of ForecastDay for next 5 days
+
+
+WEATHER = WeatherData()
+
 
 class Room:
     def __init__(self, name, entity_id=None, actual_temp=None, desired_temp=None, hvac_action=None, hvac_mode=None):

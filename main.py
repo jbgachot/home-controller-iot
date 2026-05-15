@@ -32,11 +32,13 @@ async def ha_sync_task():
         return
 
     svc.discover_thermostats()
+    svc.sync_weather_forecast()
 
     interval_s = getattr(config, "HA_SYNC_INTERVAL_MS", 30000) / 1000
     while True:
         await asyncio.sleep(interval_s)
         svc.sync_states()
+        svc.sync_weather_forecast()
 
 
 async def main_loop():

@@ -3,7 +3,7 @@
 import config
 from src.ha_client import HAClient
 from src.logger import logger
-from src.models import ROOMS, Room
+from src.models import ROOMS, Room, WEATHER, ForecastDay
 
 _log = logger.prefix("ha_service")
 _service = None
@@ -104,6 +104,13 @@ class HAService:
                     attrs.get("temperature")
                 )
 
+        weather_entity = getattr(config, "HA_WEATHER_ENTITY", None)
+        if weather_entity:
+            state = entity_map.get(weather_entity)
+            if state:
+                WEATHER.condition = state.get("state")
+                WEATHER.temperature = _parse_temp(state.get("attributes", {}).get("temperature"))
+
         _log.debug("States synced for %s room(s)", len(ROOMS))
         return True
 
@@ -128,6 +135,47 @@ class HAService:
             _log.error("Failed to set temperature for %s", room_name)
         return success
 
+
+    def sync_weather_forecast(self):
+        """Fetch daily forecast and populate WEATHER.temp_high/low and forecast list."""
+        if not self.connected:
+            return False
+        weather_entity = getattr(config, "HA_WEATHER_ENTITY", None)
+        if not weather_entity:
+            return False
+        response = self._client.call_service_response(
+            "weather",
+            "get_forecasts",
+            service_data={"type": "daily"},
+            target={"entity_id": weather_entity},
+        )
+        if response is None:
+            _log.error("Failed to fetch weather forecast")
+            return False
+        forecasts = response.get(weather_entity, {}).get("forecast", [])
+        if not forecasts:
+            return False
+        today = forecasts[0]
+        WEATHER.temp_high = _parse_temp(today.get("temperature"))
+        WEATHER.temp_low = _parse_temp(today.get("templow"))
+        WEATHER.forecast = []
+        for f in forecasts[1:6]:
+            WEATHER.forecast.append(ForecastDay(
+                datetime_str=f.get("datetime", ""),
+                condition=f.get("condition", ""),
+                temp_max=_parse_temp(f.get("temperature")),
+                temp_min=_parse_temp(f.get("templow")),
+                precipitation_probability=f.get("precipitation_probability", 0),
+            ))
+        _log.info(
+            "Forecast updated: %s %.1f° (%.1f/%.1f), %s days",
+            WEATHER.condition or "?",
+            WEATHER.temperature or 0,
+            WEATHER.temp_low or 0,
+            WEATHER.temp_high or 0,
+            len(WEATHER.forecast),
+        )
+        return True
 
     def set_hvac_mode(self, room_name, mode):
         """Set the HVAC mode (heat / off) for a thermostat in Home Assistant."""

@@ -222,6 +222,34 @@ class HAClient:
             _log.error("call_service error: %s", e)
         return False
 
+    def call_service_response(self, domain, service, service_data=None, target=None):
+        """Call a HA service with return_response=True. Returns the response dict or None."""
+        if not self.authenticated:
+            return None
+        try:
+            mid = self._next_id()
+            msg = {
+                "id": mid,
+                "type": "call_service",
+                "domain": domain,
+                "service": service,
+                "return_response": True,
+            }
+            if service_data:
+                msg["service_data"] = service_data
+            if target:
+                msg["target"] = target
+            self._send_frame(json.dumps(msg))
+            resp = self._recv_frame(blocking=True)
+            if resp:
+                data = json.loads(resp)
+                if data.get("id") == mid and data.get("success"):
+                    return data.get("result", {}).get("response")
+                _log.error("call_service_response failed: %s", data.get("error"))
+        except Exception as e:
+            _log.error("call_service_response error: %s", e)
+        return None
+
     def read_message(self):
         """Non-blocking read of the next incoming message. Returns dict or None."""
         if not self.connected:
