@@ -8,6 +8,12 @@ A touch-screen thermostat dashboard running on the [Pimoroni Presto](https://sho
 
 ---
 
+## Screenshots
+
+| Home                               | Focused room                                  |
+| ---------------------------------- | --------------------------------------------- |
+| ![Home view](screenshots/home.png) | ![Focused room view](screenshots/focused.png) |
+
 ## Features
 
 - **Multi-room overview** — grid of tiles showing current and target temperatures for every climate entity in Home Assistant, updated every 15 seconds
@@ -21,7 +27,7 @@ A touch-screen thermostat dashboard running on the [Pimoroni Presto](https://sho
 ## Hardware
 
 - [Pimoroni Presto](https://shop.pimoroni.com/products/presto) — the only required piece of hardware
-- Flashed with the [Pimoroni MicroPython build](https://github.com/pimoroni/pimoroni-pico) for Presto
+- Flashed with the [Pimoroni MicroPython build](https://github.com/pimoroni/presto) for Presto
 
 ## Setup
 
@@ -47,7 +53,7 @@ Copy `secrets.py.example` to `secrets.py` and fill in your Home Assistant detail
 # secrets.py
 WIFI_SSID = "your-wifi"
 WIFI_PASSWORD = "your-password"
-HA_URL = "ws://homeassistant.local:8123/api/websocket"
+HA_URL = "http://homeassistant.local"
 HA_TOKEN = "your-long-lived-access-token"
 ```
 
