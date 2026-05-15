@@ -1,4 +1,3 @@
-
 import math
 import asyncio
 import time
@@ -8,8 +7,10 @@ from src.core import presto
 from src.core import vector
 from src.core import presto
 from src.core import rgb
-from src.core import trigger_shutdown
-from src.core import app_loop
+from src.core import app_loop_default
+from src.core import trigger_shutdown_default
+from src.core import app_loop_focused
+from src.core import trigger_shutdown_focused
 from src.buzzer import play_melody
 from src.logger import logger
 
@@ -77,30 +78,41 @@ class FocusedView:
         display.clear()
         presto.update()
 
-        TouchTile(
-            description="moins",
-            initial_value="-",
-            top=HEIGHT // 2 - TILE_SIZE // 2,
-        ).draw()
+        self.close_tile = CloseTile(
+            left=WIDTH - TILE_SIZE,
+        )
 
-        ValueTile(
+        self.temperature_tile = ValueTile(
+            size=2,
+            value_size=6,
             description="chien",
-            initial_value="18°",
-            top=HEIGHT // 2 - TILE_SIZE // 2,
-            left=WIDTH // 2 - TILE_SIZE // 2,
-        ).draw()
+            initial_value=20,
+            top=HEIGHT // 2 - size(2) // 2,
+            left=WIDTH // 2 - size(2) // 2,
+        )
 
-        TouchTile(
-            description="plus",
-            initial_value="+",
+        self.minus_tile = MinusTile(
+            top=HEIGHT // 2 - TILE_SIZE // 2,
+            temperature_tile=self.temperature_tile
+        )
+
+        self.plus_tile = PlusTile(
             top=HEIGHT // 2 - TILE_SIZE // 2,
             left=WIDTH - TILE_SIZE,
-        ).draw()
+            temperature_tile=self.temperature_tile
+        )
+        
+        for component in self.__dict__.values():
+            if isinstance(component, Component):
+                component.draw()
 
     def render(self):
         # Tiles with visible interactivity,
         # needs to be drawn in every frame.
-        pass
+        self.close_tile.draw()
+        self.temperature_tile.draw()
+        self.minus_tile.draw()
+        self.plus_tile.draw()
 
 class DefaultView:
     def __init__(self):
@@ -162,12 +174,19 @@ class Component:
     def _set_state(self, *args, **kwargs):
         raise NotImplementedError()
 
+    def _increment_state(self, *args, **kwargs):
+        raise NotImplementedError()
+
     def draw(self):
         self._draw()
         self._flush()
 
     def set_state(self, *args, **kwargs):
         self._set_state(*args, **kwargs)
+        self.draw()
+
+    def increment_state(self, *args, **kwargs):
+        self._increment_state(*args, **kwargs)
         self.draw()
 
     @property
@@ -181,9 +200,10 @@ class Component:
 class Tile(Component):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.size = int(kwargs.pop("size", 1))
         self._bg = None
-        self.width = size(1)
-        self.height = size(1)
+        self.width = size(self.size)
+        self.height = size(self.size)
 
     def _draw_bg(self, color=GRAY_900):
         if self._bg is None:
@@ -193,90 +213,108 @@ class Tile(Component):
         display.set_pen(color)
         vector.draw(self._bg)
 
-class ValueTile(Tile):
-    value_size = 3
+class BaseTile(Tile):
+    bg_color = GRAY_900
+    value_color = GRAY_200
+    description_color = GRAY_600
 
-    def __init__(self, description: str | None, initial_value=None, **kwargs):
+    def __init__(self, description: str | None = None, initial_value=None, **kwargs):
         super().__init__(**kwargs)
+        self.value_size = int(kwargs.pop("value_size", 3))
         self._description = description
         self._value = None
-        self._scale = None
-        self._set_state(initial_value)
         self._value_pos = self.left + GAP, self.top + GAP + 6
         self._description_pos = self.left + GAP, self.bottom - GAP - 10
-
-    def _create_scale(self, value):
-        return GRAY_900, GRAY_200, GRAY_600
+        self._set_state(initial_value)
 
     def _set_state(self, value):
         self._value = value
-        self._scale = self._create_scale(value)
 
-    def _draw_value(self, value_color):
+    def _increment_state(self, value):
+        if isinstance(self._value, (int, float)):
+            self._value = math.floor((self._value + value) * 10) / 10
+
+    def _draw_value(self):
         _value = str(self._value) if self._value is not None else "-"
-        display.set_pen(value_color)
+        display.set_pen(self.value_color)
         display.text(_value, *self._value_pos, WIDTH, self.value_size)
 
-    def _draw_description(self, description_color):
+    def _draw_description(self):
         if self._description is not None:
-            display.set_pen(description_color)
+            display.set_pen(self.description_color)
             display.text(self._description, *self._description_pos, WIDTH, 1)
 
     def _draw(self):
-        bg_color, value_color, description_color = self._scale
-        self._draw_bg(bg_color)
-        self._draw_value(value_color)
-        self._draw_description(description_color)
+        self._draw_bg(self.bg_color)
+        self._draw_value()
+        self._draw_description()
 
-class TouchTile(Tile):
-    value_size = 3
+class TouchableTile(BaseTile):
+    pressed_bg_color = GREEN_900
+    pressed_value_color = GREEN_500
 
-    def __init__(self, description: str | None, initial_value=None, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self._description = description
-        self._value = None
-        self._scale = None
-        self._button = None
-        self._is_pressed = False
-        self._set_state(initial_value)
-        self._value_pos = self.left + GAP, self.top + GAP + 6
-        self._description_pos = self.left + GAP, self.bottom - GAP - 10
-
         self._button = Button(self.left, self.top, self.width, self.height)
+        self._is_pressed = False
 
-    def _create_scale(self, value):
-        return GRAY_900, GRAY_200, GRAY_600
-
-    def _set_state(self, value):
-        self._value = value
-        self._scale = self._create_scale(value)
-
-    def _draw_value(self, value_color):
-        _value = str(self._value) if self._value is not None else "-"
-        display.set_pen(value_color)
-        display.text(_value, *self._value_pos, WIDTH, self.value_size)
-
-    def _draw_description(self, description_color):
-        if self._description is not None:
-            display.set_pen(description_color)
-            display.text(self._description, *self._description_pos, WIDTH, 1)
+    def _handle_press(self):
+        """Override this method to handle press events"""
+        pass
 
     def _draw(self):
         is_pressed = self._button.is_pressed()
         
-        bg_color, value_color, description_color = self._scale
-        bg_color = GREEN_900 if is_pressed else bg_color
-        self._draw_bg(bg_color)
-        value_color = GREEN_500 if is_pressed else value_color
-        self._draw_value(value_color)
-        self._draw_description(description_color)
+        # Update colors for pressed state        
+        self.bg_color = self.pressed_bg_color if is_pressed else GRAY_900
+        self.value_color = self.pressed_value_color if is_pressed else GRAY_200
+        
+        super()._draw()
 
         if is_pressed and self._is_pressed:
-            logger.info(f"Pressed {self._description}")
-            asyncio.create_task(play_melody())
-            time.sleep_ms(100)
-            asyncio.run(app_loop(FocusedView()))
-            trigger_shutdown()
+            self._handle_press()
         
-        # wait for one last iteration
         self._is_pressed = is_pressed
+
+class ValueTile(BaseTile):
+    """Static tile that just displays a value"""
+    pass
+
+class TouchTile(TouchableTile):
+    def _handle_press(self):
+        logger.info(f"Pressed {self._description}")
+        time.sleep_ms(100)
+        asyncio.run(app_loop_focused(FocusedView()))
+        trigger_shutdown_default()
+
+class AdjustTile(TouchableTile):
+    def __init__(self, temperature_tile=None, symbol="+", adjustment=0.1, **kwargs):
+        super().__init__(**kwargs)
+        self._temperature_tile = temperature_tile
+        self._value = symbol
+        self._adjustment = adjustment
+
+    def _handle_press(self):
+        logger.info(f"{self.__class__.__name__} pressed")
+        if self._temperature_tile:
+            self._temperature_tile.increment_state(self._adjustment)
+            time.sleep_ms(50)
+
+class PlusTile(AdjustTile):
+    def __init__(self, **kwargs):
+        super().__init__(symbol="+", adjustment=0.1, **kwargs)
+
+class MinusTile(AdjustTile):
+    def __init__(self, **kwargs):
+        super().__init__(symbol="-", adjustment=-0.1, **kwargs)
+
+class CloseTile(TouchableTile):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self._value = "x"
+
+    def _handle_press(self):
+        logger.info("Close pressed")
+        time.sleep_ms(100)
+        asyncio.run(app_loop_default(DefaultView()))
+        trigger_shutdown_focused()
