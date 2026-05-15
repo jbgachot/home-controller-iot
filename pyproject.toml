@@ -4,12 +4,12 @@ version = "0.1.0"
 description = "Default template for PDM package"
 authors = [{ name = "Jean-Brice GACHOT", email = "jbgachot@gmail.com" }]
 dependencies = []
-requires-python = "==3.12.*"
+requires-python = ">=3.14"
 readme = "README.md"
 license = { text = "AGPL-3.0-only" }
 
 [dependency-groups]
-dev = ["ruff>=0.9.2", "micropython-rp2-stubs>=1.23.0.post2", "mpremote>=1.24.1"]
+dev = ["ruff>=0.9.2", "mpremote>=1.24.1"]
 
 [tool.ruff]
 exclude = [".venv"]
