@@ -1,10 +1,10 @@
 import asyncio
-import config
+
 import ntptime
-
 from picovector import ANTIALIAS_BEST, PicoVector
-
 from presto import Presto
+
+import config
 from src.logger import logger
 
 presto = Presto(full_res=False, ambient_light=False, layers=1)

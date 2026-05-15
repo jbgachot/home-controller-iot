@@ -1,8 +1,8 @@
 import asyncio
-import config
 
-from machine import PWM
-from machine import Pin
+from machine import PWM, Pin
+
+import config
 
 
 class Buzzer:

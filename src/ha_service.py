@@ -3,7 +3,7 @@
 import config
 from src.ha_client import HAClient
 from src.logger import logger
-from src.models import ROOMS, Room, WEATHER, ForecastDay
+from src.models import ROOMS, WEATHER, ForecastDay, Room
 
 _log = logger.prefix("ha_service")
 _service = None

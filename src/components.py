@@ -1,11 +1,9 @@
 import math
 
-from src.core import display
-from src.core import presto
-from src.core import vector
-
 from picovector import Polygon
 
+from src.colors import GRAY_900
+from src.core import display, presto, vector
 
 # sizes & spacing
 WIDTH, HEIGHT = display.get_bounds()
