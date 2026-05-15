@@ -5,7 +5,7 @@ BUZZER_VOLUME = 100
 
 # home assistant
 HA_OUTDOOR_ENTITY = None  # Optional entity_id for outdoor sensor, e.g. "weather.home"
-HA_SYNC_INTERVAL_MS = 30000  # Sync thermostat states every 30 seconds
+HA_SYNC_INTERVAL_MS = 15000  # Sync thermostat states every 30 seconds
 
 # debugging
 DEBUG = False

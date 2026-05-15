@@ -49,11 +49,13 @@ class FocusedView:
             self.room = Room(room_name, actual_temp=None, desired_temp=20.0)
 
         self._original_desired_temp = self.room.desired_temp
+        self._pending_temp = self.room.desired_temp
         self._last_change_time = None
         self._save_pending = False
         self._save_message_shown = False
+        self._confirm_close = False
 
-        self.close_tile = CloseTile(left=WIDTH - TILE_SIZE)
+        self.close_tile = CloseTile(left=WIDTH - TILE_SIZE, focused_view=self)
 
         self.temperature_tile = FocusedTile(
             room=self.room,
@@ -90,16 +92,61 @@ class FocusedView:
             left=_mode_left + int(TILE_SIZE) + GAP,
         )
 
-        for component in self.__dict__.values():
-            if isinstance(component, Component):
-                component.draw()
+        _confirm_left = (WIDTH - (int(TILE_SIZE) * 2 + GAP)) // 2
+        _confirm_top = HEIGHT // 2 - int(TILE_SIZE) // 2
+        self._confirm_save_tile = ActionTile(
+            label="oui",
+            action=self._on_confirm_save,
+            top=_confirm_top,
+            left=_confirm_left,
+        )
+        self._confirm_discard_tile = ActionTile(
+            label="non",
+            action=self._on_confirm_discard,
+            top=_confirm_top,
+            left=_confirm_left + int(TILE_SIZE) + GAP,
+        )
+
+        for tile in [self.close_tile, self.temperature_tile, self.minus_tile,
+                     self.plus_tile, self.off_tile, self.heat_tile]:
+            tile.draw()
 
     def adjust_temperature(self, adjustment):
         self.room.adjust_desired_temp(adjustment)
-        self.temperature_tile.set_state(self.room.desired_temp)
+        self._pending_temp = self.room.desired_temp
+        self.temperature_tile.set_state(self._pending_temp)
         self._last_change_time = time.ticks_ms()
         self._save_pending = True
         self._save_message_shown = False
+
+    def request_close(self):
+        display.set_pen(BLACK)
+        display.rectangle(0, 0, WIDTH, HEIGHT)
+        if not self._save_pending:
+            presto.update()
+            transition_to_view(DefaultView, "default")
+            return
+        text = "Enregistrer?"
+        tw = display.measure_text(text, 2)
+        display.set_pen(WHITE)
+        display.text(text, (WIDTH - tw) // 2, GAP, WIDTH, 2)
+        presto.update()
+        self._confirm_close = True
+
+    def _on_confirm_save(self):
+        self._save_pending = False
+        self._confirm_close = False
+        logger.info("Saving %s: desired_temp=%s", self.room.name, self._pending_temp)
+        from src import ha_service
+        svc = ha_service.get()
+        if svc:
+            svc.set_temperature(self.room.name, self._pending_temp)
+        transition_to_view(DefaultView, "default")
+
+    def _on_confirm_discard(self):
+        self._save_pending = False
+        self._confirm_close = False
+        transition_to_view(DefaultView, "default")
 
     def set_mode(self, mode):
         self.room.hvac_mode = mode
@@ -109,36 +156,44 @@ class FocusedView:
             svc.set_hvac_mode(self.room.name, mode)
 
     def _check_save_pending(self):
-        if not self._save_pending:
-            return
-        elapsed = time.ticks_diff(time.ticks_ms(), self._last_change_time)
-        if elapsed >= self.SAVE_DELAY_MS:
-            self._save_temperature()
+        pass
+        # Auto-save disabled — re-enable if needed:
+        # if not self._save_pending:
+        #     return
+        # elapsed = time.ticks_diff(time.ticks_ms(), self._last_change_time)
+        # if elapsed >= self.SAVE_DELAY_MS:
+        #     self._save_temperature()
 
     def _save_temperature(self):
         self._save_pending = False
-        logger.info("Saving %s: desired_temp=%s", self.room.name, self.room.desired_temp)
+        logger.info("Saving %s: desired_temp=%s", self.room.name, self._pending_temp)
 
         from src import ha_service
         svc = ha_service.get()
         if svc:
-            svc.set_temperature(self.room.name, self.room.desired_temp)
+            svc.set_temperature(self.room.name, self._pending_temp)
 
         self._show_save_message()
 
     def _show_save_message(self):
         display.set_pen(GREEN_500)
-        display.text("Saved", WIDTH // 2 - 30, HEIGHT - 30, WIDTH, 2)
+        display.text("Saved", WIDTH // 2 - 30, 15, WIDTH, 2)
         presto.update()
         time.sleep(2)
         display.set_pen(BLACK)
-        display.rectangle(0, HEIGHT - 40, WIDTH, 40)
+        display.rectangle(0, 0, WIDTH, 40)
         presto.update()
         self._save_message_shown = True
 
     def render(self):
+        if self._confirm_close:
+            self._confirm_save_tile.draw()
+            self._confirm_discard_tile.draw()
+            return
         self._check_save_pending()
         self.close_tile.draw()
+        if self._confirm_close:
+            return
         self.temperature_tile.draw()
         self.minus_tile.draw()
         self.plus_tile.draw()
@@ -176,9 +231,10 @@ class DefaultView:
             left = col * (int(TILE_SIZE) + GAP)
             top = row * (int(TILE_SIZE) + GAP)
             TileClass = ValueTile if room.desired_temp is None else TouchTile
+            initial_val = room.actual_temp if TileClass is TouchTile else room.actual_temp_str
             tile = TileClass(
                 description=shorten_name(room.name),
-                initial_value=room.actual_temp_str,
+                initial_value=initial_val,
                 left=left,
                 top=top,
                 room_name=room.name,
@@ -211,12 +267,17 @@ class DefaultView:
             return
 
         for room, tile in self._room_tiles:
-            new_val = room.actual_temp_str
-            if isinstance(tile, TouchableTile):
+            if isinstance(tile, TouchTile):
+                tile._set_state(room.actual_temp)
+                tile.draw()
+            elif isinstance(tile, TouchableTile):
+                new_val = room.actual_temp_str
                 tile._set_state(new_val)
                 tile.draw()
-            elif tile._value != new_val:
-                tile.set_state(new_val)
+            else:
+                new_val = room.actual_temp_str
+                if tile._value != new_val:
+                    tile.set_state(new_val)
 
 
 def size(tiles):
@@ -356,7 +417,7 @@ class TouchableTile(BaseTile):
 
         super()._draw()
 
-        if is_pressed and self._is_pressed:
+        if not is_pressed and self._is_pressed:
             self._handle_press()
 
         self._is_pressed = is_pressed
@@ -423,7 +484,7 @@ class ModeTile(TouchableTile):
 
         BaseTile._draw(self)
 
-        if is_pressed and self._is_pressed:
+        if not is_pressed and self._is_pressed:
             self._handle_press()
         self._is_pressed = is_pressed
 
@@ -461,12 +522,29 @@ class TouchTile(TouchableTile):
 
         BaseTile._draw(self)
 
-        if is_pressed and self._is_pressed:
+        if not is_pressed and self._is_pressed:
             self._handle_press()
         self._is_pressed = is_pressed
 
+    def _draw_value(self):
+        temp = self._value
+        if not isinstance(temp, (int, float)):
+            display.set_pen(self.value_color)
+            display.text(str(temp) if temp is not None else "-", *self._value_pos, WIDTH, self.value_size)
+            return
+        rounded = round(temp, 1)
+        int_part = int(rounded)
+        dec_digit = round((rounded - int_part) * 10)
+        x, y = self._value_pos
+        int_str = str(int_part)
+        display.set_pen(self.value_color)
+        display.text(int_str, x, y, WIDTH, self.value_size)
+        x_deg = x + display.measure_text(int_str, self.value_size)
+        display.text("°", x_deg + 2, y, WIDTH, self.value_size)
+        display.text(f".{dec_digit}", x_deg, y + self.value_size * 4, WIDTH, 1)
+
     def _handle_press(self):
-        logger.info(f"Pressed {self._room_name}")
+        # logger.info(f"Pressed {self._room_name}")
         transition_to_view(
             FocusedView,
             "focused",
@@ -482,7 +560,7 @@ class AdjustTile(TouchableTile):
         self._adjustment = adjustment
 
     def _handle_press(self):
-        logger.info(f"{self.__class__.__name__} pressed")
+        # logger.info(f"{self.__class__.__name__} pressed")
         if self._focused_view:
             self._focused_view.adjust_temperature(self._adjustment)
             time.sleep_ms(50)
@@ -508,16 +586,42 @@ class MinusTile(AdjustTile):
         super().__init__(symbol="-", adjustment=-0.1, **kwargs)
 
 
+class ActionTile(TouchableTile):
+    """Generic touchable tile that calls a callback on press, with centred label."""
+
+    def __init__(self, label, action=None, **kwargs):
+        super().__init__(**kwargs)
+        self._value = label
+        self._action = action
+
+    def _draw_value(self):
+        _text = str(self._value) if self._value is not None else ""
+        text_width = display.measure_text(_text, self.value_size)
+        x = self.left + (int(self.width) - text_width) // 2
+        _, y = self._value_pos
+        display.set_pen(self.value_color)
+        display.text(_text, x, y, WIDTH, self.value_size)
+
+    def _handle_press(self):
+        logger.info(f"Action: {self._value}")
+        if self._action:
+            self._action()
+
+
 class CloseTile(TouchableTile):
     VALUE_OFFSET_X = 14
     VALUE_OFFSET_Y = 2
 
-    def __init__(self, **kwargs):
+    def __init__(self, focused_view=None, **kwargs):
         kwargs.setdefault("value_offset_x", self.VALUE_OFFSET_X)
         kwargs.setdefault("value_offset_y", self.VALUE_OFFSET_Y)
         super().__init__(**kwargs)
+        self._focused_view = focused_view
         self._value = "x"
 
     def _handle_press(self):
         logger.info("Close pressed")
-        transition_to_view(DefaultView, "default")
+        if self._focused_view:
+            self._focused_view.request_close()
+        else:
+            transition_to_view(DefaultView, "default")
