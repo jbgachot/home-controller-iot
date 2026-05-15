@@ -15,7 +15,7 @@ class Logger:
         if not self._should_log(level):
             return
         _level = level.upper()
-        _msg = msg % tuple(str(arg) for arg in args) if args else msg
+        _msg = msg % tuple(args) if args else msg
         _time = time.ticks_ms()
         _prefix = f"{prefix} | " if prefix else ""
         print(f"[{_time: >10}] {_level: >7} | {_prefix}{_msg}")

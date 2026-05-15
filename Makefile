@@ -42,6 +42,16 @@ run: with-deps # Send project to the serial device and reset.
 		cp -r src/ : + \
 		reset
 
+.PHONY: dev
+dev: with-deps # Send project to the serial device and start.
+	$(MPREMOTE) \
+		cp config.py : + \
+		cp main.py : + \
+		cp secrets.py : + \
+		cp -r src/ : +
+	$(MPREMOTE) \
+		run main.py
+
 .PHONY: reset
 reset: with-deps # Hard reset the serial device
 	$(MPREMOTE) reset
