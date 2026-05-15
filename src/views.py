@@ -1,17 +1,21 @@
 
 import math
 import asyncio
+import time
 
 from src.core import display
 from src.core import presto
 from src.core import vector
 from src.core import presto
 from src.core import rgb
-from src.core import play_melody
+from src.core import trigger_shutdown
+from src.core import app_loop
+from src.buzzer import play_melody
 from src.logger import logger
 
 from picovector import Polygon
 from touch import Button
+
 
 # sizes & spacing
 WIDTH, HEIGHT = display.get_bounds()
@@ -66,6 +70,37 @@ class SplashView:
         display.set_pen(WHITE)
         display.text("Thermostat\nController", 8, HEIGHT // 2 - 24, WIDTH, 4)
         presto.update()
+
+class FocusedView:
+    def __init__(self):
+        display.set_pen(BLACK)
+        display.clear()
+        presto.update()
+
+        TouchTile(
+            description="moins",
+            initial_value="-",
+            top=HEIGHT // 2 - TILE_SIZE // 2,
+        ).draw()
+
+        ValueTile(
+            description="chien",
+            initial_value="18°",
+            top=HEIGHT // 2 - TILE_SIZE // 2,
+            left=WIDTH // 2 - TILE_SIZE // 2,
+        ).draw()
+
+        TouchTile(
+            description="plus",
+            initial_value="+",
+            top=HEIGHT // 2 - TILE_SIZE // 2,
+            left=WIDTH - TILE_SIZE,
+        ).draw()
+
+    def render(self):
+        # Tiles with visible interactivity,
+        # needs to be drawn in every frame.
+        pass
 
 class DefaultView:
     def __init__(self):
@@ -203,7 +238,6 @@ class TouchTile(Tile):
         self._scale = None
         self._button = None
         self._is_pressed = False
-        self._is_toggling = False
         self._set_state(initial_value)
         self._value_pos = self.left + GAP, self.top + GAP + 6
         self._description_pos = self.left + GAP, self.bottom - GAP - 10
@@ -229,17 +263,20 @@ class TouchTile(Tile):
 
     def _draw(self):
         is_pressed = self._button.is_pressed()
-        if is_pressed and not self._is_pressed and not self._is_toggling:
-            logger.info("Pressed")
-            asyncio.create_task(play_melody())
-        self._is_pressed = is_pressed
-
+        
         bg_color, value_color, description_color = self._scale
-
-        bg_color = GREEN_900 if self._is_pressed and not self._is_toggling else bg_color
+        bg_color = GREEN_900 if is_pressed else bg_color
         self._draw_bg(bg_color)
-        value_color = GREEN_500 if self._is_pressed and not self._is_toggling else value_color
+        value_color = GREEN_500 if is_pressed else value_color
         self._draw_value(value_color)
         self._draw_description(description_color)
-        
 
+        if is_pressed and self._is_pressed:
+            logger.info(f"Pressed {self._description}")
+            asyncio.create_task(play_melody())
+            time.sleep_ms(100)
+            asyncio.run(app_loop(FocusedView()))
+            trigger_shutdown()
+        
+        # wait for one last iteration
+        self._is_pressed = is_pressed

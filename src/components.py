@@ -6,11 +6,13 @@ from src.core import vector
 
 from picovector import Polygon
 
+
 # sizes & spacing
 WIDTH, HEIGHT = display.get_bounds()
 GAP = 8
 TILES = 4
 TILE_SIZE = (WIDTH - (GAP * (TILES - 1))) / TILES
+
 
 def size(tiles):
     return (TILE_SIZE * tiles) + (GAP * (tiles - 1))
