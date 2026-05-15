@@ -1,6 +1,7 @@
 # core
 NTP_SERVER = None
-DISABLE_WIFI = False
+DISABLE_WIFI = True
+BUZZER_VOLUME = 100
 
 # debugging
 DEBUG = False

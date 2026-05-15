@@ -1,5 +1,7 @@
-import config
 import time
+
+import config
+
 
 class Logger:
     LEVELS = ["debug", "info", "warning", "error"]

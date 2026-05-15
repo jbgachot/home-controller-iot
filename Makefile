@@ -58,3 +58,4 @@ repl: with-deps # Enter in the REPL of the serial device.
 style: with-deps # Run linter and formater.
 	$(PDM) run lint
 	$(PDM) run format
+
