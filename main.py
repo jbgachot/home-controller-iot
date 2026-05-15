@@ -33,11 +33,19 @@ async def ha_sync_task():
 
     svc.discover_thermostats()
     svc.sync_weather_forecast()
+    asyncio.create_task(_ha_weather_task(svc))
 
     interval_s = getattr(config, "HA_SYNC_INTERVAL_MS", 30000) / 1000
     while True:
         await asyncio.sleep(interval_s)
         svc.sync_states()
+
+
+async def _ha_weather_task(svc):
+    """Background task: refreshes weather forecast every 5 minutes"""
+    interval_s = getattr(config, "HA_WEATHER_SYNC_INTERVAL_MS", 300000) / 1000
+    while True:
+        await asyncio.sleep(interval_s)
         svc.sync_weather_forecast()
 
 

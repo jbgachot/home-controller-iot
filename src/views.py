@@ -9,7 +9,6 @@ from src.colors import (
     GRAY_200,
     GRAY_400,
     GRAY_600,
-    GRAY_700,
     GRAY_900,
     GREEN_500,
     GREEN_900,
@@ -25,7 +24,7 @@ WIDTH, HEIGHT = display.get_bounds()
 GAP = 8
 TILES = 4
 TILE_SIZE = (WIDTH - (GAP * (TILES - 1))) / TILES
-WEATHER_Y = int((int(TILE_SIZE) + GAP) * 2)  # y where weather section starts (below 2 tile rows)
+WEATHER_Y = int((int(TILE_SIZE) + GAP) * 2) + 10
 
 _COND_FULL = {
     "clear-night": "Nuit claire",
@@ -35,7 +34,7 @@ _COND_FULL = {
     "hail": "Grele",
     "lightning": "Orageux",
     "lightning-rainy": "Orage+pluie",
-    "partlycloudy": "Peu nuageux",
+    "partlycloudy": "Couvert",
     "pouring": "Pluie forte",
     "rainy": "Pluvieux",
     "snowy": "Neigeux",
@@ -48,17 +47,17 @@ _COND_FULL = {
 _COND_SHORT = {
     "clear-night": "Nuit",
     "cloudy": "Nuag",
-    "exceptional": "Exc.",
-    "fog": "Brui",
+    "exceptional": "Parf",
+    "fog": "Brou",
     "hail": "Grel",
-    "lightning": "Orge",
-    "lightning-rainy": "Or.P",
-    "partlycloudy": "Mi-N",
+    "lightning": "Orag",
+    "lightning-rainy": "OraP",
+    "partlycloudy": "Couv",
     "pouring": "Pluv",
     "rainy": "Plui",
     "snowy": "Neig",
-    "snowy-rainy": "Ne.P",
-    "sunny": "Sol.",
+    "snowy-rainy": "NeiP",
+    "sunny": "Sol",
     "windy": "Vent",
     "windy-variant": "Vent",
 }
@@ -92,11 +91,7 @@ class WeatherSection:
             display.set_pen(GRAY_600)
             display.text(today_str, GAP, y_today, WIDTH, 1)
 
-        y_sep = y_today + 16
-        display.set_pen(GRAY_700)
-        display.rectangle(0, y_sep, WIDTH, 1)
-
-        y_fc = y_sep + 4
+        y_fc = y_today + 16
         col_w = WIDTH // 5
 
         for i, fc in enumerate(WEATHER.forecast[:5]):
@@ -697,7 +692,7 @@ class ActionTile(TouchableTile):
         display.text(_text, x, y, WIDTH, self.value_size)
 
     def _handle_press(self):
-        logger.info(f"Action: {self._value}")
+        # logger.info(f"Action: {self._value}")
         if self._action:
             self._action()
 
@@ -714,7 +709,7 @@ class CloseTile(TouchableTile):
         self._value = "x"
 
     def _handle_press(self):
-        logger.info("Close pressed")
+        # logger.info("Close pressed")
         if self._focused_view:
             self._focused_view.request_close()
         else:
