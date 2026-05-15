@@ -53,17 +53,17 @@ Copy `secrets.py.example` to `secrets.py` and fill in your Home Assistant detail
 # secrets.py
 WIFI_SSID = "your-wifi"
 WIFI_PASSWORD = "your-password"
-HA_URL = "http://homeassistant.local"
+HA_URL = "homeassistant.local"
 HA_TOKEN = "your-long-lived-access-token"
 ```
 
 Then adjust `config.py` to match your setup:
 
 ```python
-HA_WEATHER_ENTITY = "weather.your_location"   # for the forecast section
-HA_OUTDOOR_ENTITY = None                       # optional outdoor sensor entity_id
-HA_SYNC_INTERVAL_MS = 15000                    # thermostat sync interval
-HA_WEATHER_SYNC_INTERVAL_MS = 300000           # weather sync interval
+HA_WEATHER_ENTITY = "weather.your_location" # for the forecast section
+HA_OUTDOOR_ENTITY = None                    # optional outdoor sensor entity_id
+HA_SYNC_INTERVAL_MS = 15000                 # thermostat sync interval
+HA_WEATHER_SYNC_INTERVAL_MS = 300000        # weather sync interval
 ```
 
 ### Deploy
@@ -85,19 +85,19 @@ make style       # run linter and formatter
 ## Project structure
 
 ```
-├── main.py          # entry point, async task orchestration
-├── config.py        # tuneable parameters
-├── secrets.py       # WiFi and Home Assistant credentials (git-ignored)
+├── main.py           # entry point, async task orchestration
+├── config.py         # tuneable parameters
+├── secrets.py        # WiFi and Home Assistant credentials (git-ignored)
 └── src/
-    ├── core.py      # Presto initialization and event loop
-    ├── views.py     # all views and tile components
-    ├── components.py# base component classes
-    ├── colors.py    # color palette
-    ├── models.py    # Room and Weather data models
-    ├── ha_service.py# Home Assistant service layer
-    ├── ha_client.py # WebSocket client (RFC 6455)
-    ├── logger.py    # logging utility
-    └── buzzer.py    # audio feedback
+    ├── core.py       # Presto initialization and event loop
+    ├── views.py      # all views and tile components
+    ├── components.py # base component classes
+    ├── colors.py     # color palette
+    ├── models.py     # Room and Weather data models
+    ├── ha_service.py # Home Assistant service layer
+    ├── ha_client.py  # WebSocket client (RFC 6455)
+    ├── logger.py     # logging utility
+    └── buzzer.py     # audio feedback
 ```
 
 ## Inspired by
