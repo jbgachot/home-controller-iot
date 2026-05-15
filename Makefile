@@ -36,6 +36,7 @@ endif
 .PHONY: run
 run: with-deps # Send project to the serial device and reset.
 	$(MPREMOTE) \
+		cp config.py : + \
 		cp main.py : + \
 		cp secrets.py : + \
 		cp -r src/ : + \
